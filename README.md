@@ -2,6 +2,12 @@
 
 A node.js client implementation of http://theory.stanford.edu/~aiken/moss/
 
+## Install
+
+```
+npm install moss-node-client
+```
+
 ## Running the example
 
 Clone the project, navigate to example, edit `index.js` to specify your moss user id, or alternatively run via `cross-env` 
@@ -13,7 +19,7 @@ cross-env MOSS_ID=12345678 node ./index.js
 ## Generic usage
 
 ``` javascript
-const MossClient = require('mossjs')
+const MossClient = require('moss-node-client')
 
 // Create a client and specify language and moss user id
 const client = new MossClient("python", "12345678")
