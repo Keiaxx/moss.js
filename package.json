@@ -1,0 +1,12 @@
+{
+  "name": "mossjs",
+  "version": "1.0.0",
+  "description": "A MOSS (by aiken of stanford.edu) client in Node.JS",
+  "main": "moss.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Adrian Gose <adrian@gose.pw>",
+  "license": "MIT",
+  "repository": "git://github.com/Keiaxx/moss.js.git"
+}
