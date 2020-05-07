@@ -117,14 +117,15 @@ class MossClient {
         console.log(fileObj)
 
         return new Promise((resolve, reject) => {
-            let writing = `file ${fileId} ${this.opts.l} ${fileObj.size} ${fileObj.description}\n`
-            console.log(writing)
-            socket.write(writing)
             fs.readFile(fileObj.path, "utf-8", (err, data) => {
                 if(err)
                     reject(err)
-
-                socket.write(data)
+            
+                let newdata = data.replace(/[^a-zA-Z0-9\t\n ./,<>?;:"'`!@#$%^&*()\[\]{}_+=|\\-]/g, '')
+                let writing = `file ${fileId} ${this.opts.l} ${Buffer.byteLength(newdata)} ${fileObj.description}\n`
+                socket.write(writing)
+                socket.write(newdata)
+                console.log("Written " + writing)
                 resolve()
             })
         })
@@ -158,8 +159,10 @@ class MossClient {
 
                     let fileId = 1
                     for(const file of this.files){
-                        await this._uploadFile(socket, file, fileId)
-                        fileId++
+                        try{
+                            await this._uploadFile(socket, file, fileId)
+                            fileId++
+                        }catch(e){}
                     }
 
                     socket.write(`query 0 ${this.opts.c}\n`)
