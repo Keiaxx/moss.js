@@ -1,6 +1,6 @@
 {
   "name": "moss-node-client",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A MOSS (by aiken of stanford.edu) client in Node.JS",
   "main": "moss.js",
   "scripts": {
