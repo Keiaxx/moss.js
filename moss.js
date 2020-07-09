@@ -23,6 +23,8 @@
 const fs = require('fs')
 const path = require('path')
 const net = require('net')
+const cheerio = require('cheerio');
+const request = require('sync-request');
 
 const moss_host = 'moss.stanford.edu'
 const moss_port = 7690
@@ -113,14 +115,14 @@ class MossClient {
         });
     }
 
-    async _uploadFile(socket, fileObj, fileId){
+    async _uploadFile(socket, fileObj, fileId) {
         console.log(fileObj)
 
         return new Promise((resolve, reject) => {
             fs.readFile(fileObj.path, "utf-8", (err, data) => {
-                if(err)
+                if (err)
                     reject(err)
-            
+
                 let newdata = data.replace(/[^a-zA-Z0-9\t\n ./,<>?;:"'`!@#$%^&*()\[\]{}_+=|\\-]/g, '')
                 let writing = `file ${fileId} ${this.opts.l} ${Buffer.byteLength(newdata)} ${fileObj.description}\n`
                 socket.write(writing)
@@ -151,25 +153,25 @@ class MossClient {
                 if (data == "no\n")
                     reject(new Error("Invalid language specified"))
 
-                if (data == "yes\n"){
+                if (data == "yes\n") {
 
-                    for(const baseFile of this.baseFiles){
+                    for (const baseFile of this.baseFiles) {
                         await this._uploadFile(socket, baseFile, 0)
                     }
 
                     let fileId = 1
-                    for(const file of this.files){
-                        try{
+                    for (const file of this.files) {
+                        try {
                             await this._uploadFile(socket, file, fileId)
                             fileId++
-                        }catch(e){}
+                        } catch (e) { }
                     }
 
                     socket.write(`query 0 ${this.opts.c}\n`)
 
                 }
 
-                if (String(data).startsWith("http://moss.stanford.edu")){
+                if (String(data).startsWith("http://moss.stanford.edu")) {
                     socket.write('end\n')
                     socket.destroy()
                     resolve(data.toString('utf8'))
@@ -180,6 +182,45 @@ class MossClient {
                 console.log('Connection closed');
             });
         })
+    }
+
+    parseResult(url) {
+        try {
+            let res = request('GET', url);
+            let html = res.getBody('utf8');
+
+            var pair = {};
+            var pairs = [];
+
+            const $ = cheerio.load(html);
+            $('body > table > tbody > tr > td').each((index, element) => {
+                let str = $(element).text().trim();
+                switch (index % 3) {
+                    case 0:
+                        pair.file1 = str.substr(0, str.indexOf('(') - 1);
+                        pair.file1Percentage = parseInt(
+                            /\(([^)]+)%\)/.exec(str)[1]
+                        );
+                        break;
+                    case 1:
+                        pair.file2 = str.substr(0, str.indexOf('(') - 1);
+                        pair.file2Percentage = parseInt(
+                            /\(([^)]+)%\)/.exec(str)[1]
+                        );
+                        break;
+                    case 2:
+                        pair.linesMatched = parseInt(str);
+                        pairs.push(pair);
+                        pair = {};
+                        break;
+                    default:
+                        break;
+                }
+            });
+            return pairs;
+        } catch (e) {
+            console.log(e);
+        }
     }
 }
 

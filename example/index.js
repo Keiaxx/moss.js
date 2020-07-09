@@ -13,6 +13,7 @@ async function start() {
 
         let url = await client.process()
         console.log(url)
+        console.log(client.parseResult(url));
     } catch (e) {
         console.log("Error with MOSS submission")
     }
