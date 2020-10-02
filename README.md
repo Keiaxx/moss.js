@@ -20,6 +20,10 @@ cross-env MOSS_ID=12345678 node ./index.js
 
 ``` javascript
 const MossClient = require('moss-node-client')
+const fs = require('fs)
+
+const base2 = fs.readFileSync('./submissions/base2.py').toString()
+const sub3 = fs.readFileSync('./submissions/sub3.py').toString()
 
 // Create a client and specify language and moss user id
 const client = new MossClient("python", "12345678")
@@ -28,11 +32,17 @@ const client = new MossClient("python", "12345678")
 client.setComment("project1")
 
 // Add a base file
-client.addBaseFile('./submissions/base.py', 'base')
+client.addBaseFile('./submissions/base.py', 'base1')
+
+//Add a raw base file
+client.addRawBaseFile(base2,'base2')
 
 // Add files to compare
 client.addFile('./submissions/sub1.py', 'sub1')
 client.addFile('./submissions/sub2.py', 'sub2')
+
+//Add raw files to compare
+client.addRawFile(sub3,'sub3')
 
 // Call process(), a async/promise that returns the moss url
 client.process().then(url => {

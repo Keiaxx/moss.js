@@ -20,53 +20,83 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-const fs = require('fs')
-const path = require('path')
-const net = require('net')
+const fs = require("fs")
+const path = require("path")
+const net = require("net")
 
-const moss_host = 'moss.stanford.edu'
+const moss_host = "moss.stanford.edu"
 const moss_port = 7690
-const languages = ["c", "cc", "java", "ml", "pascal", "ada", "lisp", "scheme", "haskell", "fortran", "ascii", "vhdl", "perl", "matlab", "python", "mips", "prolog", "spice", "vb", "csharp", "modula2", "a8086", "javascript", "plsql", "verilog"]
+const languages = [
+	"c",
+	"cc",
+	"java",
+	"ml",
+	"pascal",
+	"ada",
+	"lisp",
+	"scheme",
+	"haskell",
+	"fortran",
+	"ascii",
+	"vhdl",
+	"perl",
+	"matlab",
+	"python",
+	"mips",
+	"prolog",
+	"spice",
+	"vb",
+	"csharp",
+	"modula2",
+	"a8086",
+	"javascript",
+	"plsql",
+	"verilog",
+]
 
 class MossClient {
-    constructor(language, userId) {
-        if (!languages.includes(String(language).toLowerCase()))
-            throw new Error("MossClient: Invalid language specified")
+	constructor(language, userId) {
+		if (!languages.includes(String(language).toLowerCase()))
+			throw new Error("MossClient: Invalid language specified")
 
-        this.baseFiles = []
-        this.files = []
-        this.userId = userId
-        this.language = language
-        this.opts = {
-            l: this.language,
-            m: 10,
-            d: 0,
-            x: 0,
-            c: '',
-            n: 250
-        }
-    }
+		this.baseFiles = []
+		this.files = []
 
-    /**
-     * The -c option supplies a comment string that is attached to the generated
-     * report.  This option facilitates matching queries submitted with replies
-     * received, especially when several queries are submitted at once.
-     * @param {*} comment 
-     */
-    setComment(comment) {
-        this.opts.c = comment
-    }
+		this.rawBaseFiles = []
+		this.rawFiles = []
 
-    /**
-     * The -n option determines the number of matching files to show in the results.
-     * The default is 250.
-     * @param {*} num 
-     */
-    setNumMatchingFiles(num) {
-        this.opts.n = num
-    }
+		this.userId = userId
+		this.language = language
+		this.opts = {
+			l: this.language,
+			m: 10,
+			d: 0,
+			x: 0,
+			c: "",
+			n: 250,
+		}
+	}
 
-    /**
+	/**
+	 * The -c option supplies a comment string that is attached to the generated
+	 * report.  This option facilitates matching queries submitted with replies
+	 * received, especially when several queries are submitted at once.
+	 * @param {*} comment
+	 */
+	setComment(comment) {
+		this.opts.c = comment
+	}
+
+	/**
+	 * The -n option determines the number of matching files to show in the results.
+	 * The default is 250.
+	 * @param {*} num
+	 */
+	setNumMatchingFiles(num) {
+		this.opts.n = num
+	}
+
+	/**
      *  # The -m option sets the maximum number of times a given passage may appear
         # before it is ignored.  A passage of code that appears in many programs
         # is probably legitimate sharing and not the result of plagiarism.  With -m N,
@@ -83,104 +113,134 @@ class MossClient {
         # expected to hold all legitimately shared code.  The default for -m is 10.
      * @param {*} limit 
      */
-    setMIgnoreLimit(limit) {
-        this.opts.m = limit
-    }
+	setMIgnoreLimit(limit) {
+		this.opts.m = limit
+	}
 
-    async addBaseFile(filePath, description) {
-        let fp = path.resolve(filePath)
-        fs.access(fp, fs.constants.F_OK, (err) => {
-            if (err)
-                throw new Error(`Base file ${filePath} cannot be found`)
+	async addBaseFile(filePath, description) {
+		let fp = path.resolve(filePath)
+		fs.access(fp, fs.constants.F_OK, err => {
+			if (err) throw new Error(`Base file ${filePath} cannot be found`)
 
-            const stat = fs.statSync(fp);
-            const bytes = stat.size;
+			const stat = fs.statSync(fp)
+			const bytes = stat.size
 
-            this.baseFiles.push({ description: description, path: filePath, size: bytes })
-        });
-    }
+			this.baseFiles.push({
+				description: description,
+				path: filePath,
+				size: bytes,
+			})
+		})
+	}
 
-    async addFile(filePath, description) {
-        let fp = path.resolve(filePath)
-        fs.access(fp, fs.constants.F_OK, (err) => {
-            if (err)
-                throw new Error(`Normal file ${filePath} cannot be found`)
+	async addFile(filePath, description) {
+		let fp = path.resolve(filePath)
+		fs.access(fp, fs.constants.F_OK, err => {
+			if (err) throw new Error(`Normal file ${filePath} cannot be found`)
 
-            const stat = fs.statSync(fp);
-            const bytes = stat.size;
+			const stat = fs.statSync(fp)
+			const bytes = stat.size
 
-            this.files.push({ description: description, path: filePath, size: bytes })
-        });
-    }
+			this.files.push({
+				description: description,
+				path: filePath,
+				size: bytes,
+			})
+		})
+	}
 
-    async _uploadFile(socket, fileObj, fileId){
-        console.log(fileObj)
+	async _uploadFile(socket, fileObj, fileId) {
+		return new Promise((resolve, reject) => {
+			fs.readFile(fileObj.path, "utf-8", (err, data) => {
+				if (err) reject(err)
+				let newdata = data.replace(
+					/[^a-zA-Z0-9\t\n ./,<>?;:"'`!@#$%^&*()\[\]{}_+=|\\-]/g,
+					""
+				)
+				let writing = `file ${fileId} ${this.opts.l} ${Buffer.byteLength(newdata)} ${
+					fileObj.description
+				}\n`
+				socket.write(writing)
+				socket.write(newdata)
+				resolve()
+			})
+		})
+	}
 
-        return new Promise((resolve, reject) => {
-            fs.readFile(fileObj.path, "utf-8", (err, data) => {
-                if(err)
-                    reject(err)
-            
-                let newdata = data.replace(/[^a-zA-Z0-9\t\n ./,<>?;:"'`!@#$%^&*()\[\]{}_+=|\\-]/g, '')
-                let writing = `file ${fileId} ${this.opts.l} ${Buffer.byteLength(newdata)} ${fileObj.description}\n`
-                socket.write(writing)
-                socket.write(newdata)
-                console.log("Written " + writing)
-                resolve()
-            })
-        })
-    }
+	async process() {
+		return new Promise((resolve, reject) => {
+			let socket = new net.Socket()
+			socket.connect(moss_port, moss_host, () => {
+				socket.write(`moss ${this.userId}\n`)
+				socket.write(`directory ${this.opts.d}\n`)
+				socket.write(`X ${this.opts.x}\n`)
+				socket.write(`maxmatches ${this.opts.m}\n`)
+				socket.write(`show ${this.opts.n}\n`)
+				socket.write(`language ${this.opts.l}\n`)
+			})
 
-    async process() {
-        return new Promise((resolve, reject) => {
-            let socket = new net.Socket()
-            socket.connect(moss_port, moss_host, () => {
-                console.log(`Connected to MOSS server @ ${moss_host}:${moss_port}`)
+			socket.on("data", async data => {
+				if (data == "no\n") reject(new Error("Invalid language specified"))
 
-                socket.write(`moss ${this.userId}\n`)
-                socket.write(`directory ${this.opts.d}\n`)
-                socket.write(`X ${this.opts.x}\n`)
-                socket.write(`maxmatches ${this.opts.m}\n`)
-                socket.write(`show ${this.opts.n}\n`)
-                socket.write(`language ${this.opts.l}\n`)
-            });
+				if (data == "yes\n") {
+					for (const baseFile of this.baseFiles) {
+						await this._uploadFile(socket, baseFile, 0)
+					}
 
-            socket.on('data', async (data) => {
-                console.log('DATA: ' + data);
+					for (const baseFile of this.rawBaseFiles) {
+						await this._uploadRawFile(socket, baseFile, 0)
+					}
 
-                if (data == "no\n")
-                    reject(new Error("Invalid language specified"))
+					let fileId = 1
+					for (const file of this.files) {
+						try {
+							await this._uploadFile(socket, file, fileId)
+							fileId++
+						} catch (e) {}
+					}
 
-                if (data == "yes\n"){
+					for (const file of this.rawFiles) {
+						try {
+							await this._uploadRawFile(socket, file, fileId)
+							fileId++
+						} catch (e) {}
+					}
 
-                    for(const baseFile of this.baseFiles){
-                        await this._uploadFile(socket, baseFile, 0)
-                    }
+					socket.write(`query 0 ${this.opts.c}\n`)
+				}
 
-                    let fileId = 1
-                    for(const file of this.files){
-                        try{
-                            await this._uploadFile(socket, file, fileId)
-                            fileId++
-                        }catch(e){}
-                    }
+				if (String(data).startsWith("http://moss.stanford.edu")) {
+					socket.write("end\n")
+					socket.destroy()
+					resolve(data.toString("utf8"))
+				}
+			})
+		})
+	}
 
-                    socket.write(`query 0 ${this.opts.c}\n`)
+	async addRawFile(content, description) {
+		this.rawFiles.push({
+			content,
+			description,
+		})
+	}
 
-                }
+	async addRawBaseFile(content, description) {
+		this.rawBaseFiles.push({
+			content,
+			description,
+		})
+	}
 
-                if (String(data).startsWith("http://moss.stanford.edu")){
-                    socket.write('end\n')
-                    socket.destroy()
-                    resolve(data.toString('utf8'))
-                }
-            });
-
-            socket.on('close', () => {
-                console.log('Connection closed');
-            });
-        })
-    }
+	async _uploadRawFile(socket, fileObj, fileId) {
+		const data = fileObj.content
+		let newdata = data.replace(/[^a-zA-Z0-9\t\n ./,<>?;:"'`!@#$%^&*()\[\]{}_+=|\\-]/g, "")
+		let writing = `file ${fileId} ${this.opts.l} ${Buffer.byteLength(newdata)} ${
+			fileObj.description
+		}\n`
+		socket.write(writing)
+		socket.write(newdata)
+	}
 }
 
 module.exports = MossClient
